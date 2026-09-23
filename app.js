@@ -73,7 +73,7 @@ function render(){
 function renderFlights(rows){
   rows.sort((a,b)=>Number(current(b))-Number(current(a)) || ($("sort").value==="date"?a.departure_date.localeCompare(b.departure_date):$("sort").value==="updated"?b.observed_at.localeCompare(a.observed_at):a.price-b.price));
   const pages=Math.ceil(rows.length/size);page=Math.max(0,Math.min(page,pages-1));
-  $("result-count").textContent=`${rows.length} 条航班报价${rows.some(r=>!current(r))?" · 历史报价列在后面":""}`;
+  $("result-count").textContent=`${rows.length} 条低价候选报价${rows.some(r=>!current(r))?" · 历史报价列在后面":""}`;
   $("empty").hidden=rows.length>0;
   $("fare-rows").innerHTML=rows.slice(page*size,(page+1)*size).map(r=>{
     const legs=r.itineraries[0],a=legs[0],b=legs.at(-1);

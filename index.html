@@ -14,7 +14,7 @@
     <section class="intro"><div><p class="eyebrow">深圳 · 广州 · 香港 · 澳门</p><h1>下一站，哪里更划算？</h1><p id="window-label">未来 60 天 · 1 位成人 · 经济舱 · 直飞</p></div><div class="update"><span id="run-status">正在读取报价</span><p id="last-updated">—</p></div></section>
     <p id="notice" class="notice" role="status" hidden></p>
     <section class="metrics" aria-label="当前筛选结果概览"><div class="metric featured"><span>本次查询 · 最低航班报价</span><strong id="lowest">—</strong><p id="lowest-route">以具体航班搜索结果为准</p></div><div class="metric"><span>有航班详情的报价</span><strong id="quote-count">—</strong><p>每日优先核对低价日期</p></div><div class="metric"><span>价格日历覆盖</span><strong id="date-count">—</strong><p id="coverage-caption">航线 × 出发日期</p></div></section>
-    <section class="city-coverage" aria-label="四城查询覆盖"><p>本次城市查询覆盖 <small>覆盖不完整时，不能判断四城最低价。</small></p><div id="city-status"></div></section>
+    <section class="city-coverage" aria-label="四城查询覆盖"><p>本次全部国家查询覆盖 <small>覆盖不完整时，不能判断四城最低价。</small></p><div id="city-status"></div></section>
     <section class="workspace" aria-label="机票查询结果">
       <form class="filters" id="filters"><label>出发城市<select id="origin"><option value="">全部城市</option></select></label><label>目的国家<select id="country"><option value="">全部国家</option></select></label><label>目的机场<select id="destination"><option value="">全部机场</option></select></label><label>出发月份<select id="month"><option value="">全部月份</option></select></label><label>行程<select id="trip"><option value="one_way">单程</option><option value="round_trip">往返</option></select></label><button type="reset" class="reset">重置筛选</button></form>
       <div class="toolbar"><nav aria-label="结果视图"><button class="tab active" data-view="flights" aria-pressed="true">航班报价</button><button class="tab" data-view="calendar" aria-pressed="false">价格日历</button><button class="tab" data-view="status" aria-pressed="false">更新记录</button></nav><label class="sort" id="sort-label">排序<select id="sort"><option value="price">价格从低到高</option><option value="date">出发日期</option><option value="updated">最近查询</option></select></label></div>
@@ -22,7 +22,7 @@
       <div id="view-calendar" hidden><div class="table-intro"><span>每个出发日期的最低参考价</span><span>点击日期，查看对应航线；日历参考价尚未逐一核价</span></div><div id="calendar-months"></div></div>
       <div id="view-status" hidden><div id="source-status"></div><div class="table-scroll"><table><thead><tr><th>航线</th><th>查询内容</th><th>状态</th><th>返回记录</th><th>查询时间</th></tr></thead><tbody id="check-rows"></tbody></table></div></div>
     </section>
-    <footer><p>报价用于发现候选行程，购买前请打开来源页面确认价格、行李和退改条件。</p><p id="scope-note">当前为试运行；自动来源为 Google Flights，尚未覆盖所有平台。</p></footer>
+    <footer><p>航班表仅展示筛选核对过的低价候选，并非所有航班；每页 15 条，可翻页查看。购买前请打开来源页面确认价格、行李和退改条件。</p><p id="scope-note">当前为试运行；自动来源为 Google Flights，尚未覆盖所有平台。</p></footer>
   </main>
   <dialog id="detail"><div class="dialog-heading"><h2 id="detail-title">航班详情</h2><button type="button" id="close-dialog" aria-label="关闭详情">×</button></div><div id="detail-body"></div></dialog>
 </body>
