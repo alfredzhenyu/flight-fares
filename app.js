@@ -33,7 +33,22 @@ function initialize() {
   $("sort").addEventListener("change",()=>{page=0;render();});
   document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{view=btn.dataset.view;render();}));
   $("close-dialog").addEventListener("click",()=>$("detail").close());
+  renderCityCoverage();
   render();
+}
+function renderCityCoverage(){
+  const stale=data.run && Date.now()-new Date(data.run.finished_at)>26*3600000;
+  $("city-status").innerHTML=Object.entries(data.origins).map(([code,name])=>{
+    const checks=(data.run?.checks||[]).filter(c=>c.origin===code);
+    const ok=checks.filter(c=>c.status==="ok").length;
+    const empty=checks.filter(c=>c.status==="empty").length;
+    const failed=checks.filter(c=>c.status==="failed").length;
+    const skipped=checks.filter(c=>c.status==="skipped").length;
+    const status=!checks.length?"未查询":ok?(failed||skipped?"部分取得报价":"已取得报价"):failed?"查询失败":skipped?"查询未完成":"本次无符合条件报价";
+    const old=data.quotes.filter(r=>r.origin===code&&!current(r)).length;
+    const fresh=data.quotes.filter(r=>r.origin===code&&current(r)).length;
+    return `<div><strong>${esc(name)}</strong><span>${stale?"历史查询 · ":""}${status}</span><small>${ok+empty}/${checks.length} 项查询完成 · ${fresh} 条新航班报价${old?` · ${old} 条历史报价`:""}</small></div>`;
+  }).join("");
 }
 function populateDestinations(){
   const chosen=$("destination").value;$("destination").replaceChildren(option("","全部机场"));
