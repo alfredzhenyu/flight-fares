@@ -103,7 +103,7 @@ function showDetail(r){
   $("detail").showModal();
 }
 function renderStatus(){
-  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描所有配置航线；每日仅对其中的低价候选查询航班详情。往返优先查询两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
+  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描所有配置航线；每日仅对其中的低价候选查询航班详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
   const status={ok:"完成",empty:"本次无报价",failed:"查询失败",skipped:"本次未查询"};
   $("check-rows").innerHTML=(data.run?.checks||[]).map(c=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}</td><td>${c.kind==="calendar"?"价格日历":"航班详情"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td>${status[c.status]||esc(c.status)}${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${c.rows}</td><td>${esc(clock(c.at))}</td></tr>`).join("");
 }
