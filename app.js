@@ -13,14 +13,13 @@ function filters(rows) {
   return rows.filter(r=>(!origin||r.origin===origin)&&(!destination||r.destination===destination)&&(!country||Object.hasOwn(data.countries[country].airports,r.destination))&&(!month||r.departure_date.startsWith(month))&&r.trip_type===trip);
 }
 function option(value,label) {const el=document.createElement("option");el.value=value;el.textContent=label;return el;}
-function openHelp(retry=false){
+function openHelp(){
   $("help").showModal();
-  if(retry)$("help-retry").focus();
-  else $("help").scrollTop=0;
+  $("help").scrollTop=0;
 }
 // Help must remain available even when the quotation file cannot be loaded.
 $("open-help").addEventListener("click",()=>openHelp());
-$("retry-help").addEventListener("click",()=>openHelp(true));
+$("notice-help").addEventListener("click",()=>openHelp());
 $("close-help").addEventListener("click",()=>$("help").close());
 function renderHelp(){
   const origins=Object.values(data.origins),countries=Object.values(data.countries);
