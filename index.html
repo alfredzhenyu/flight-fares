@@ -9,10 +9,11 @@
   <link rel="stylesheet" href="style.css"><script defer src="app.js"></script>
 </head>
 <body>
-  <header class="masthead"><div class="brand"><span class="brand-icon" aria-hidden="true">↗</span><div><strong>湾区出发</strong><span>机票观察 / FARE WATCH</span></div></div><a class="download" href="flights.xlsx" download>下载 Excel <span aria-hidden="true">↓</span></a></header>
+  <header class="masthead"><div class="brand"><span class="brand-icon" aria-hidden="true">↗</span><div><strong>湾区出发</strong><span>机票观察 / FARE WATCH</span></div></div><nav class="header-actions" aria-label="看板操作"><button type="button" class="download" id="open-help">使用帮助</button><a class="download" href="https://github.com/alfredzhenyu/flight-watch/actions/workflows/daily.yml" target="_blank" rel="noopener noreferrer">重新查询 ↗</a><a class="download" href="flights.xlsx" download>下载 Excel ↓</a></nav></header>
   <main>
     <section class="intro"><div><p class="eyebrow">深圳 · 广州 · 香港 · 澳门</p><h1>下一站，哪里更划算？</h1><p id="window-label">未来 60 天 · 1 位成人 · 经济舱 · 直飞</p></div><div class="update"><span id="run-status">正在读取报价</span><p id="last-updated">—</p></div></section>
     <p id="notice" class="notice" role="status" hidden></p>
+    <div id="notice-actions" class="notice-actions" hidden><button type="button" id="show-status" disabled>查看更新记录</button><button type="button" id="retry-help">如何重新查询？</button><span>刷新网页不会启动新的机票搜索。</span></div>
     <section class="metrics" aria-label="当前筛选结果概览"><div class="metric featured"><span>本次查询 · 最低航班报价</span><strong id="lowest">—</strong><p id="lowest-route">以具体航班搜索结果为准</p></div><div class="metric"><span>有航班详情的报价</span><strong id="quote-count">—</strong><p>每日优先核对低价日期</p></div><div class="metric"><span>价格日历覆盖</span><strong id="date-count">—</strong><p id="coverage-caption">航线 × 出发日期</p></div></section>
     <section class="city-coverage" aria-label="四城查询覆盖"><p>本次全部国家查询覆盖 <small>覆盖不完整时，不能判断四城最低价。</small></p><div id="city-status"></div></section>
     <section class="workspace" aria-label="机票查询结果">
@@ -25,5 +26,38 @@
     <footer><p>航班表仅展示筛选核对过的低价候选，并非所有航班；每页 15 条，可翻页查看。购买前请打开来源页面确认价格、行李和退改条件。</p><p id="scope-note">当前为试运行；自动来源为 Google Flights，尚未覆盖所有平台。</p></footer>
   </main>
   <dialog id="detail"><div class="dialog-heading"><h2 id="detail-title">航班详情</h2><button type="button" id="close-dialog" aria-label="关闭详情">×</button></div><div id="detail-body"></div></dialog>
+  <dialog id="help" aria-labelledby="help-title">
+    <div class="dialog-heading"><h2 id="help-title">使用帮助</h2><button type="button" id="close-help" aria-label="关闭使用帮助">×</button></div>
+    <p class="help-lead">这个看板帮你发现值得进一步核价的低价行程。它展示的是筛选后的候选，并非所有航班，也不保证覆盖全网最低价。</p>
+    <section id="help-retry" tabindex="-1">
+      <h3>查询失败后，怎样获取更新结果？</h3>
+      <p><strong>刷新网页</strong>只会读取已经发布的报价，不会重新搜索机票。要再查一次，请点击页面顶部的<strong>“重新查询 ↗”</strong>：</p>
+      <ol><li>进入 GitHub 后，登录拥有此采集仓库权限的账号。</li><li>点击 <strong>Run workflow</strong>，分支保留 <strong>main</strong>。“仅测试四城到吉隆坡”保持不勾选，即查询全部国家。</li><li>点击表单中的 <strong>Run workflow</strong> 启动。若已有任务运行，新任务会排队。</li><li>采集通常需要几分钟；任务最长约 20 分钟，排队时间另计。保存和发布完成后，回到看板刷新，并检查顶部的<strong>查询更新时间</strong>是否变化。</li></ol>
+      <a class="detail-link" href="https://github.com/alfredzhenyu/flight-watch/actions/workflows/daily.yml" target="_blank" rel="noopener noreferrer">打开 GitHub，重新采集 ↗</a>
+      <p>重新采集会再查全部配置范围，不只是失败航线。网络波动可能重试后恢复；来源限制、页面变化或无有效结果不保证能靠重试解决，避免连续重复启动。若只想核对某条已有报价，可在“查看详情”中打开来源页面重新查价。</p>
+      <p>自动任务计划每天北京时间 17:13 运行，Mac 无需开机。GitHub 可能明显延迟；此前曾在 21—22 点启动，因此以实际查询时间为准。</p>
+    </section>
+    <section><h3>航班从哪里来？查询哪些地方？</h3>
+      <p>自动来源为 <strong>Google Flights 的网页数据</strong>，不是承诺稳定的官方免费 API。目前没有自动接入携程、去哪儿或各航司官网，也不代表各平台都已比较。</p>
+      <p id="help-scope">查询范围随看板配置更新；请参见出发城市、目的国家与机场筛选。</p><ul id="help-airports"></ul>
+      <p>统一条件：1 位成人、经济舱、直飞、来源以人民币展示的价格，包含来源显示的必付税费。行李和退改条件待确认；不含前往出发机场的地面交通费用。起降时间使用机场当地时间，查询时间使用北京时间。</p>
+    </section>
+    <section><h3>为什么只显示部分航班？怎样选出来的？</h3>
+      <ol><li><strong>先扫描单程日期价格。</strong>对配置内的每条航线查询未来窗口的每日最低参考价，作为候选日期线索；它不是全部航班的清单。</li><li><strong>再核对低价候选。</strong><span id="help-single-budget">当前默认每次采集最多查询 48 组“航线＋出发日期”。</span>先为每个“出发城市＋国家”选一个有报价的低价日期，再优先覆盖不同航线，剩余名额按低价填充。每组最多保留 5 条符合条件的低价航班结果。</li><li><strong>往返单独核价。</strong>每个国家优先选 2 条低价航线，比较停留 <span id="help-nights">5／7／10</span> 天的方案，再选最多 3 个候选行程查询真实整程报价。日历不可用时，以单程低价日期试查往返。每个候选只展开一个低价去程选项，最多保留 5 个整程结果，不穷举所有去回程组合，也不把两个最低单程价相加。</li></ol>
+      <p>这些是程序设置的工作量上限，不是平台提供的收费查询额度。运行时限、访问限制或查询失败会减少实际完成量；“未列出”不代表没有航班。</p>
+    </section>
+    <section><h3>页面怎样排序？“最低价”指什么？</h3>
+      <p>默认先显示本次取得、且查询时间未超过 26 小时的报价，再按价格从低到高排列；历史报价排在后面。也可切换为出发日期或最近查询排序。每页 15 条，可以翻页，并按城市、国家、机场、月份及单程／往返筛选。</p>
+      <p>顶部最低价仅来自当前筛选下的本次有效航班报价，历史报价不参与。“价格日历”显示当前筛选下每个出发日期的最低参考价，尚未逐日核对所有具体航班。来源显示价不等于商家最终结算价，购买前需要重新确认。</p>
+    </section>
+    <section><h3>更新记录里的状态分别是什么意思？</h3>
+      <dl><dt>完成</dt><dd>该项查询取得了有效报价。</dd><dt>本次无报价</dt><dd>来源本次未返回符合筛选条件的结果，不等于没有航班。</dd><dt>查询失败</dt><dd>未取得可靠结果，可能是网络、来源限制或返回格式异常；保留对应旧报价及原查询时间。</dd><dt>本次未查询</dt><dd>达到运行时限，或触发连续失败／访问限制保护，留待下次查询。</dd></dl>
+      <p>“部分查询未完成”表示部分项目失败或未查询，其他成功项目仍可查看。某国往返日历失败，也可能已经取得该国的具体往返航班报价；两种查询分别展示。</p>
+    </section>
+    <section><h3>历史价格与 Excel 会保留吗？</h3>
+      <p>每次采集记录保存在你的 GitHub 私有仓库。看板仅展示当前出行窗口内的行程；点击报价详情，可查看同一报价最近最多 60 次观察。过了出发日期的记录会从看板移除，私有历史仍保留。</p>
+      <p>“下载 Excel”导出最近发布的报价快照及查询时间，适合筛选和保存，并非全部历史档案。历史仅从本系统开始采集时算起，不能据此声称某价格是全年最低。</p>
+    </section>
+  </dialog>
 </body>
 </html>

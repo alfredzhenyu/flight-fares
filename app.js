@@ -13,7 +13,28 @@ function filters(rows) {
   return rows.filter(r=>(!origin||r.origin===origin)&&(!destination||r.destination===destination)&&(!country||Object.hasOwn(data.countries[country].airports,r.destination))&&(!month||r.departure_date.startsWith(month))&&r.trip_type===trip);
 }
 function option(value,label) {const el=document.createElement("option");el.value=value;el.textContent=label;return el;}
+function openHelp(retry=false){
+  $("help").showModal();
+  if(retry)$("help-retry").focus();
+  else $("help").scrollTop=0;
+}
+// Help must remain available even when the quotation file cannot be loaded.
+$("open-help").addEventListener("click",()=>openHelp());
+$("retry-help").addEventListener("click",()=>openHelp(true));
+$("close-help").addEventListener("click",()=>$("help").close());
+function renderHelp(){
+  const origins=Object.values(data.origins),countries=Object.values(data.countries);
+  const destinations=countries.reduce((n,c)=>n+Object.keys(c.airports).length,0);
+  const policy=data.collection_policy;
+  $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinations} 个目的机场，共 ${origins.length*destinations} 条配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。不是每条配置航线都有直飞报价，也不代表覆盖这些国家的所有机场。`;
+  $("help-airports").innerHTML=countries.map(c=>`<li><strong>${esc(c.name)}</strong>：${Object.entries(c.airports).map(([a,n])=>`${esc(n)} ${esc(a)}`).join("、")}。</li>`).join("");
+  if(policy){
+    $("help-single-budget").textContent=`当前配置每次采集最多查询 ${policy.max_detail_queries} 组“航线＋出发日期”。`;
+    $("help-nights").textContent=policy.round_trip_nights.join("／");
+  }
+}
 function initialize() {
+  renderHelp();
   for(const [code,name] of Object.entries(data.origins)) $("origin").append(option(code,name));
   for(const [code,country] of Object.entries(data.countries)) $("country").append(option(code,country.name));
   populateDestinations();
@@ -25,6 +46,7 @@ function initialize() {
   $("last-updated").textContent=data.run ? `${clock(data.run.finished_at)} 更新 · 北京时间` : "尚无更新记录";
   if(!data.run || data.run.status!=="success" || Date.now()-new Date(data.run.finished_at)>26*3600000){
     $("notice").hidden=false;
+    $("notice-actions").hidden=false;
     $("notice").textContent=!data.run?"尚无采集结果。":data.run.status==="failed"?"本次查询失败，保留的报价带有原查询时间。请查看更新记录。":Date.now()-new Date(data.run.finished_at)>26*3600000?"最新数据已超过 26 小时，当前全部为历史报价，请打开来源页面重新确认。":"部分航线未取得有效结果。保留的历史报价带有原查询时间；覆盖情况见更新记录。";
   }
   $("filters").addEventListener("change",event=>{if(event.target.id==="country")populateDestinations();page=0;render();});
@@ -33,6 +55,8 @@ function initialize() {
   $("sort").addEventListener("change",()=>{page=0;render();});
   document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{view=btn.dataset.view;render();}));
   $("close-dialog").addEventListener("click",()=>$("detail").close());
+  $("show-status").disabled=false;
+  $("show-status").addEventListener("click",()=>{view="status";render();$("view-status").scrollIntoView({behavior:"smooth",block:"start"});});
   renderCityCoverage();
   render();
 }
@@ -107,4 +131,4 @@ function renderStatus(){
   const status={ok:"完成",empty:"本次无报价",failed:"查询失败",skipped:"本次未查询"};
   $("check-rows").innerHTML=(data.run?.checks||[]).map(c=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}</td><td>${c.kind==="calendar"?"价格日历":"航班详情"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td>${status[c.status]||esc(c.status)}${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${c.rows}</td><td>${esc(clock(c.at))}</td></tr>`).join("");
 }
-fetch("data.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("数据读取失败");return r.json();}).then(result=>{data=result;if(data.schema_version!==1)throw new Error("数据版本不匹配");initialize();}).catch(()=>{$("run-status").textContent="未能读取报价";$("notice").hidden=false;$("notice").textContent="报价文件暂时不可用，请稍后刷新。当前未展示任何示例价格。";$("result-count").textContent="暂无数据";});
+fetch("data.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("数据读取失败");return r.json();}).then(result=>{data=result;if(data.schema_version!==1)throw new Error("数据版本不匹配");initialize();}).catch(()=>{$("run-status").textContent="未能读取报价";$("notice").hidden=false;$("notice-actions").hidden=false;$("notice").textContent="报价文件暂时不可用，请稍后刷新。当前未展示任何示例价格。";$("result-count").textContent="暂无数据";});
