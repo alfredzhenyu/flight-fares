@@ -19,7 +19,7 @@ function openHelp(){
 }
 // Help must remain available even when the quotation file cannot be loaded.
 $("open-help").addEventListener("click",()=>openHelp());
-$("notice-help").addEventListener("click",()=>openHelp());
+$("retry-help").addEventListener("click",()=>openHelp());
 $("close-help").addEventListener("click",()=>$("help").close());
 function renderHelp(){
   const origins=Object.values(data.origins),countries=Object.values(data.countries);
