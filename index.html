@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="style.css"><script defer src="app.js"></script>
 </head>
 <body>
-  <header class="masthead"><div class="brand"><span class="brand-icon" aria-hidden="true">↗</span><div><strong>湾区出发</strong><span>机票观察 / FARE WATCH</span></div></div><nav class="header-actions" aria-label="看板操作"><button type="button" class="download" id="open-help">使用帮助</button><a class="download" href="https://github.com/alfredzhenyu/flight-watch/actions/workflows/daily.yml" target="_blank" rel="noopener noreferrer">重新查询 ↗</a><a class="download" href="flights.xlsx" download>下载 Excel ↓</a></nav></header>
+  <header class="masthead"><div class="brand"><span class="brand-icon" aria-hidden="true">↗</span><div><strong>湾区出发</strong><span>机票观察 / FARE WATCH</span></div></div><nav class="header-actions" aria-label="看板操作"><button type="button" class="download" id="open-help">使用帮助</button><a class="download" href="flights.xlsx" download>下载 Excel ↓</a></nav></header>
   <main>
     <section class="intro"><div><p class="eyebrow">深圳 · 广州 · 香港 · 澳门</p><h1>下一站，哪里更划算？</h1><p id="window-label">未来 60 天 · 1 位成人 · 经济舱 · 直飞</p></div><div class="update"><span id="run-status">正在读取报价</span><p id="last-updated">—</p></div></section>
     <p id="notice" class="notice" role="status" hidden></p>
@@ -31,10 +31,11 @@
     <p class="help-lead">这个看板帮你发现值得进一步核价的低价行程。它展示的是筛选后的候选，并非所有航班，也不保证覆盖全网最低价。</p>
     <section id="help-retry" tabindex="-1">
       <h3>查询失败后，怎样获取更新结果？</h3>
-      <p><strong>刷新网页</strong>只会读取已经发布的报价，不会重新搜索机票。要再查一次，请点击页面顶部的<strong>“重新查询 ↗”</strong>：</p>
-      <ol><li>进入 GitHub 后，登录拥有此采集仓库权限的账号。</li><li>点击 <strong>Run workflow</strong>，分支保留 <strong>main</strong>。“仅测试四城到吉隆坡”保持不勾选，即查询全部国家。</li><li>点击表单中的 <strong>Run workflow</strong> 启动。若已有任务运行，新任务会排队。</li><li>采集通常需要几分钟；任务最长约 20 分钟，排队时间另计。保存和发布完成后，回到看板刷新，并检查顶部的<strong>查询更新时间</strong>是否变化。</li></ol>
-      <a class="detail-link" href="https://github.com/alfredzhenyu/flight-watch/actions/workflows/daily.yml" target="_blank" rel="noopener noreferrer">打开 GitHub，重新采集 ↗</a>
-      <p>重新采集会再查全部配置范围，不只是失败航线。网络波动可能重试后恢复；来源限制、页面变化或无有效结果不保证能靠重试解决，避免连续重复启动。若只想核对某条已有报价，可在“查看详情”中打开来源页面重新查价。</p>
+      <p><strong>刷新网页</strong>只会读取已发布的报价，不会重新搜索机票。打开<strong>“更新记录”</strong>，点击当天失败或跳过项目旁的<strong>“重试”</strong>，只补查这一项，无需打开 GitHub。</p>
+      <p>首次操作需要输入你的 <strong>flight-api 访问口令</strong>，不是 GitHub 密码。验证在本标签页有效 12 小时。过了北京时间当天，重试按钮变灰：无法补采过去时刻的价格，但可以在报价详情里查询当前价格。</p>
+      <p>任务通常需要几分钟，排队可能更久；页面会显示进度，成功后自动更新列表。页面关闭后，云端任务仍会继续；回到同一标签页可恢复查看。重试不能保证绕过来源限制或恢复所有结果。</p>
+      <p>在<strong>“查看详情”</strong>中选择 <strong>1—30 天</strong>停留时间，再点击<strong>“查询所选天数”</strong>。可选择严格返回日期，或前后各 1 天，比较各日期的往返整程总价；去程航班可能变化。单纯切换天数先展示已存报价。</p>
+      <p>同条件成功结果缓存 1 小时。每天最多启动 <strong>6 次按需任务</strong>（查询和重试共用），缓存命中不占次数；每次新任务至少间隔 1 分钟，同时只运行一个。每个返回日期最多展开 3 个低价去程候选，结果是所查候选最低价，并非全部航班组合。</p>
       <p>自动任务计划每天北京时间 17:13 运行，Mac 无需开机。GitHub 可能明显延迟；此前曾在 21—22 点启动，因此以实际查询时间为准。</p>
     </section>
     <section><h3>航班从哪里来？查询哪些地方？</h3>
