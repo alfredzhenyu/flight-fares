@@ -6,11 +6,19 @@ const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;",
 const money = value => "¥" + Number(value).toLocaleString("zh-CN", {maximumFractionDigits: 0});
 const clock = value => new Date(value).toLocaleString("zh-CN", {timeZone:"Asia/Shanghai",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
 const safeUrl = value => {try {const url = new URL(value); return url.protocol === "https:" ? url.href : "#";}catch{return "#";}};
-function city(code) { return data.origins[code] || Object.values(data.countries).map(c=>c.airports[code]).find(Boolean) || code; }
+function destinationCities(){
+  return Object.entries(data.countries).flatMap(([country,c])=>Object.entries(c.cities||Object.fromEntries(Object.entries(c.airports).map(([code,name])=>[code,{name,airports:{[code]:name}}]))).map(([id,item])=>({...item,id:country+":"+id,country})));
+}
+function city(code) { return data.origins[code] || destinationCities().find(c=>Object.hasOwn(c.airports,code))?.name || code; }
+function airport(code) { return Object.values(data.countries).map(c=>c.airports[code]).find(Boolean) || data.origins[code] || code; }
+function routeMatches(row){
+  const origin=$("origin").value,country=$("country").value,destination=$("destination").value;
+  const selected=destinationCities().find(c=>c.id===destination);
+  return (!origin||row.origin===origin)&&(!country||Object.hasOwn(data.countries[country].airports,row.destination))&&(!destination||Boolean(selected&&Object.hasOwn(selected.airports,row.destination)));
+}
 function current(row) {return data.run && row.observed_at >= data.run.started_at && Date.now() - new Date(row.observed_at).getTime() < 26 * 3600000;}
 function filters(rows) {
-  const [origin,country,destination,month,trip] = ["origin","country","destination","month","trip"].map(id=>$(id).value);
-  return rows.filter(r=>(!origin||r.origin===origin)&&(!destination||r.destination===destination)&&(!country||Object.hasOwn(data.countries[country].airports,r.destination))&&(!month||r.departure_date.startsWith(month))&&r.trip_type===trip);
+  return rows.filter(r=>routeMatches(r)&&(!$("month").value||r.departure_date.startsWith($("month").value))&&r.trip_type===$("trip").value);
 }
 function option(value,label) {const el=document.createElement("option");el.value=value;el.textContent=label;return el;}
 function openHelp(){
@@ -25,8 +33,8 @@ function renderHelp(){
   const origins=Object.values(data.origins),countries=Object.values(data.countries);
   const destinations=countries.reduce((n,c)=>n+Object.keys(c.airports).length,0);
   const policy=data.collection_policy;
-  $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinations} 个目的机场，共 ${origins.length*destinations} 条配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。不是每条配置航线都有直飞报价，也不代表覆盖这些国家的所有机场。`;
-  $("help-airports").innerHTML=countries.map(c=>`<li><strong>${esc(c.name)}</strong>：${Object.entries(c.airports).map(([a,n])=>`${esc(n)} ${esc(a)}`).join("、")}。</li>`).join("");
+  $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinationCities().length} 个目的城市、${destinations} 个已选机场，共 ${origins.length*destinations} 条配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。只查询配置中明确选定的城市和机场，不会自动扫描整个国家。`;
+  $("help-airports").innerHTML=Object.entries(data.countries).map(([code,c])=>`<li><strong>${esc(c.name)}</strong>：${destinationCities().filter(city=>city.country===code).map(city=>`${esc(city.name)}（${Object.keys(city.airports).join(" / ")}）`).join("、")}。</li>`).join("");
   if(policy){
     $("help-single-budget").textContent=`当前配置每次采集最多查询 ${policy.max_detail_queries} 组“航线＋出发日期”。`;
     $("help-nights").textContent=policy.round_trip_nights.join("／");
@@ -56,6 +64,7 @@ function initialize() {
   $("close-dialog").addEventListener("click",()=>$("detail").close());
   $("show-status").disabled=false;
   $("show-status").addEventListener("click",()=>{view="status";render();$("view-status").scrollIntoView({behavior:"smooth",block:"start"});});
+  $("show-empty-checks").addEventListener("change",renderStatus);
   renderCityCoverage();
   render();
   initializeApi();
@@ -75,8 +84,8 @@ function renderCityCoverage(){
   }).join("");
 }
 function populateDestinations(){
-  const chosen=$("destination").value;$("destination").replaceChildren(option("","全部机场"));
-  for(const [code,country] of Object.entries(data.countries))if(!$("country").value||$("country").value===code)for(const [airport,name]of Object.entries(country.airports))$("destination").append(option(airport,`${name} ${airport}`));
+  const chosen=$("destination").value;$("destination").replaceChildren(option("","全部城市"));
+  for(const c of destinationCities())if(!$("country").value||$("country").value===c.country)$("destination").append(option(c.id,c.name));
   if([...$("destination").options].some(o=>o.value===chosen))$("destination").value=chosen;
 }
 function render(){
@@ -102,7 +111,7 @@ function renderFlights(rows){
   $("fare-rows").innerHTML=rows.slice(page*size,(page+1)*size).map(r=>{
     const legs=r.itineraries[0],a=legs[0],b=legs.at(-1);
     const extra=Math.round((new Date(b.arrival.slice(0,10))-new Date(a.departure.slice(0,10)))/86400000);
-    return `<tr><td><strong>${esc(r.departure_date.slice(5))}</strong><small>${r.return_date?"返回 "+esc(r.return_date.slice(5)):"单程"}</small></td><td class="route"><strong>${esc(city(r.origin))}<span>→</span>${esc(city(r.destination))}</strong><small>${esc(r.origin)} — ${esc(r.destination)} · 直飞${r.nights?" · 停留 "+r.nights+" 天":""}</small></td><td><strong>${esc(a.departure.slice(11,16))} — ${esc(b.arrival.slice(11,16))}${extra?" +"+extra:""}</strong><small>${esc(legs.map(l=>l.flight_number).join(" / "))} · ${esc(a.airline)}</small></td><td><span class="price">${money(r.price)}</span><small>${r.return_date?"往返总价":"单程"} · 行李待确认</small></td><td>${esc(r.source)}<small>${esc(clock(r.observed_at))}<span class="tag ${current(r)?"":"old"}">${current(r)?"搜索报价":"历史报价"}</span></small></td><td><button class="fare-action" data-detail="${esc(r.id)}">查看详情 ↗</button></td></tr>`;
+    return `<tr><td><strong>${esc(r.departure_date.slice(5))}</strong><small>${r.return_date?"返回 "+esc(r.return_date.slice(5)):"单程"}</small></td><td class="route"><strong>${esc(city(r.origin))}<span>→</span>${esc(city(r.destination))}</strong><small>${esc(r.origin)} — ${esc(r.destination)} · ${esc(airport(r.destination))} · 直飞${r.nights?" · 停留 "+r.nights+" 天":""}</small></td><td><strong>${esc(a.departure.slice(11,16))} — ${esc(b.arrival.slice(11,16))}${extra?" +"+extra:""}</strong><small>${esc(legs.map(l=>l.flight_number).join(" / "))} · ${esc(a.airline)}</small></td><td><span class="price">${money(r.price)}</span><small>${r.return_date?"往返总价":"单程"} · 行李待确认</small></td><td>${esc(r.source)}<small>${esc(clock(r.observed_at))}<span class="tag ${current(r)?"":"old"}">${current(r)?"搜索报价":"历史报价"}</span></small></td><td><button class="fare-action" data-detail="${esc(r.id)}">查看详情 ↗</button></td></tr>`;
   }).join("");
   $("fare-rows").querySelectorAll("[data-detail]").forEach(btn=>btn.addEventListener("click",()=>showDetail(rows.find(r=>r.id===btn.dataset.detail))));
   $("pagination").innerHTML=pages>1?`<button id="prev" ${page===0?"disabled":""}>上一页</button><span>${page+1} / ${pages}</span><button id="next" ${page===pages-1?"disabled":""}>下一页</button>`:"";
@@ -123,14 +132,22 @@ function renderCalendar(rows){
 function showDetail(r){
   $("detail-title").textContent=`${city(r.origin)} → ${city(r.destination)}`;
   const history=r.history||[];
-  $("detail-body").innerHTML=`<p class="detail-price">${money(r.price)}</p><p>${r.return_date?"往返总价":"单程"} · ${r.kind==="calendar"?"日历参考价":"具体航班搜索报价"}${current(r)?"":" · 历史记录"}<br>${esc(r.departure_date)}${r.return_date?" 出发 / "+esc(r.return_date)+" 返回":" 出发"}<br>查询于 ${esc(clock(r.observed_at))}（北京时间）</p>${(r.itineraries||[]).map((trip,i)=>`<h3>${i?"回程":"去程"} · 机场当地时间</h3>${trip.map(l=>`<div class="leg"><strong>${esc(l.flight_number)} · ${esc(l.airline)}</strong><br>${esc(l.origin)} ${esc(l.departure.replace("T"," "))}<br>${esc(l.destination)} ${esc(l.arrival.replace("T"," "))}</div>`).join("")}`).join("")}<p>${esc(r.taxes)}；手提及托运行李均待确认。<br>来源：${esc(r.source)}；商家结算价尚未核实。<br>不含前往出发机场的地面交通费。</p><a class="detail-link" href="${esc(safeUrl(r.source_url))}" target="_blank" rel="noopener noreferrer">打开来源，重新查价 ↗</a><h3>本系统记录的报价变化</h3>${history.length>1?`<p class="subtle">同一${r.kind==="calendar"?"航线、日期的最低参考价":"航班搜索报价"}；行李和套餐条件未逐次核实。</p><table class="history-table"><thead><tr><th>查询时间</th><th>价格</th></tr></thead><tbody>${history.slice().reverse().map(h=>`<tr><td>${esc(clock(h.at))}</td><td>${money(h.price)}</td></tr>`).join("")}</tbody></table>`:'<p class="subtle">目前只有一次记录，尚不能判断价格趋势或全年高低。</p>'}`;
+  $("detail-body").innerHTML=`<p class="detail-price">${money(r.price)}</p><p>${r.return_date?"往返总价":"单程"} · ${r.kind==="calendar"?"日历参考价":"具体航班搜索报价"}${current(r)?"":" · 历史记录"}<br>${esc(r.departure_date)}${r.return_date?" 出发 / "+esc(r.return_date)+" 返回":" 出发"}<br>查询于 ${esc(clock(r.observed_at))}（北京时间）</p>${(r.itineraries||[]).map((trip,i)=>`<h3>${i?"回程":"去程"} · 机场当地时间</h3>${trip.map(l=>`<div class="leg"><strong>${esc(l.flight_number)} · ${esc(l.airline)}</strong><br>${esc(city(l.origin))} · ${esc(airport(l.origin))} ${esc(l.origin)} ${esc(l.departure.replace("T"," "))}<br>${esc(city(l.destination))} · ${esc(airport(l.destination))} ${esc(l.destination)} ${esc(l.arrival.replace("T"," "))}</div>`).join("")}`).join("")}<p>${esc(r.taxes)}；手提及托运行李均待确认。<br>来源：${esc(r.source)}；商家结算价尚未核实。<br>不含前往出发机场的地面交通费。</p><a class="detail-link" href="${esc(safeUrl(r.source_url))}" target="_blank" rel="noopener noreferrer">打开来源，重新查价 ↗</a><h3>本系统记录的报价变化</h3>${history.length>1?`<p class="subtle">同一${r.kind==="calendar"?"航线、日期的最低参考价":"航班搜索报价"}；行李和套餐条件未逐次核实。</p><table class="history-table"><thead><tr><th>查询时间</th><th>价格</th></tr></thead><tbody>${history.slice().reverse().map(h=>`<tr><td>${esc(clock(h.at))}</td><td>${money(h.price)}</td></tr>`).join("")}</tbody></table>`:'<p class="subtle">目前只有一次记录，尚不能判断价格趋势或全年高低。</p>'}`;
   attachTripSearch(r);
   $("detail").showModal();
 }
 function renderStatus(){
   $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描所有配置航线；每日仅对其中的低价候选查询航班详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
-  const status={ok:"完成",empty:"本次无报价",failed:"查询失败",skipped:"本次未查询"};
-  $("check-rows").innerHTML=(data.run?.checks||[]).map(c=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}</td><td>${c.kind==="calendar"?"价格日历":"航班详情"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td>${status[c.status]||esc(c.status)}${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${c.rows}</td><td>${esc(clock(c.at))}</td><td>${retryControl(c,(data.run?.checks||[]).indexOf(c))}</td></tr>`).join("");
+  const status={ok:"取得报价",empty:"查询正常 · 无符合条件报价",failed:"查询失败",skipped:"本次未查询"};
+  // Keep the original index for targeted retry even when rows are hidden.
+  const checks=(data.run?.checks||[]).map((check,index)=>({check,index})).filter(({check})=>routeMatches(check));
+  const count=name=>checks.filter(({check})=>check.status===name).length;
+  $("check-summary").textContent=`取得报价 ${count("ok")} 项 · 查询失败 ${count("failed")} 项 · 未查询 ${count("skipped")} 项 · 正常无报价 ${count("empty")} 项`;
+  $("empty-check-count").textContent=`显示无报价记录（${count("empty")}）`;
+  const shown=checks.filter(({check})=>check.status!=="empty"||$("show-empty-checks").checked);
+  $("check-rows").innerHTML=shown.map(({check:c,index})=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}<small>${esc(c.origin)} — ${esc(c.destination)} · ${esc(airport(c.destination))}</small></td><td>${c.kind==="calendar"?"价格日历":"航班详情"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td><span class="check-state ${esc(c.status)}">${status[c.status]||esc(c.status)}</span>${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${["failed","skipped"].includes(c.status)?"—":c.rows}</td><td>${esc(clock(c.at))}</td><td>${retryControl(c,index)}</td></tr>`).join("");
+  $("checks-empty").hidden=shown.length>0;
+  $("checks-empty").textContent=checks.length?"当前范围的查询均正常但未返回报价；可勾选上方开关查看记录。":"当前筛选范围没有查询记录。";
   $("check-rows").querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>startFlightJob({mode:"retry",run_id:data.run.id,check_index:Number(b.dataset.retry)}));
 }
 fetch("data.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("数据读取失败");return r.json();}).then(result=>{data=result;if(data.schema_version!==1)throw new Error("数据版本不匹配");initialize();}).catch(()=>{$("run-status").textContent="未能读取报价";$("notice").hidden=false;$("notice-actions").hidden=false;$("notice").textContent="报价文件暂时不可用，请稍后刷新。当前未展示任何示例价格。";$("result-count").textContent="暂无数据";});
@@ -169,7 +186,7 @@ function retryControl(check,index){
 function attachTripSearch(row){
   selectedTrip={origin:row.origin,destination:row.destination,departure:row.departure_date};
   const section=document.createElement("section");section.className="trip-search";
-  section.innerHTML=`<h3>按游玩天数比较往返</h3><p class="subtle">固定 ${esc(row.departure_date)} 出发，比较往返整程总价。去程航班可能变化；结果是所查候选中的最低价。</p><form id="trip-search-form"><label>停留天数<select id="trip-nights">${Array.from({length:30},(_,i)=>`<option value="${i+1}" ${i+1===(row.nights||7)?"selected":""}>${i+1} 天</option>`).join("")}</select></label><label>返回日期范围<select id="trip-flex"><option value="0">严格按所选天数</option><option value="1">前后各 1 天</option></select></label><button class="fare-action" type="submit" ${apiBase()?"":"disabled"}>查询所选天数</button></form><p id="trip-message" role="status">${apiBase()?"先展示已存报价；查询会启动云端任务，通常需等待几分钟。同条件成功结果缓存 1 小时。":"按需查询服务配置中；可以先切换天数查看已存报价。"}</p><div id="trip-results"></div>`;
+  section.innerHTML=`<h3>按游玩天数比较往返</h3><p class="subtle">固定 ${esc(row.departure_date)} 出发，查询 ${esc(row.origin)} → ${esc(row.destination)}（${esc(airport(row.destination))}）的往返整程总价。去程航班可能变化；结果是所查候选中的最低价。</p><form id="trip-search-form"><label>停留天数<select id="trip-nights">${Array.from({length:30},(_,i)=>`<option value="${i+1}" ${i+1===(row.nights||7)?"selected":""}>${i+1} 天</option>`).join("")}</select></label><label>返回日期范围<select id="trip-flex"><option value="0">严格按所选天数</option><option value="1">前后各 1 天</option></select></label><button class="fare-action" type="submit" ${apiBase()?"":"disabled"}>查询所选天数</button></form><p id="trip-message" role="status">${apiBase()?"先展示已存报价；查询会启动云端任务，通常需等待几分钟。同条件成功结果缓存 1 小时。":"按需查询服务配置中；可以先切换天数查看已存报价。"}</p><div id="trip-results"></div>`;
   $("detail-body").prepend(section);
   $("trip-search-form").onsubmit=e=>{e.preventDefault();startFlightJob({mode:"search",...selectedTrip,nights:Number($("trip-nights").value),flex:Number($("trip-flex").value)});};
   $("trip-nights").onchange=renderTripResults;$("trip-flex").onchange=renderTripResults;renderTripResults();

@@ -17,11 +17,11 @@
     <section class="metrics" aria-label="当前筛选结果概览"><div class="metric featured"><span>本次查询 · 最低航班报价</span><strong id="lowest">—</strong><p id="lowest-route">以具体航班搜索结果为准</p></div><div class="metric"><span>有航班详情的报价</span><strong id="quote-count">—</strong><p>每日优先核对低价日期</p></div><div class="metric"><span>价格日历覆盖</span><strong id="date-count">—</strong><p id="coverage-caption">航线 × 出发日期</p></div></section>
     <section class="city-coverage" aria-label="四城查询覆盖"><p>本次全部国家查询覆盖 <small>覆盖不完整时，不能判断四城最低价。</small></p><div id="city-status"></div></section>
     <section class="workspace" aria-label="机票查询结果">
-      <form class="filters" id="filters"><label>出发城市<select id="origin"><option value="">全部城市</option></select></label><label>目的国家<select id="country"><option value="">全部国家</option></select></label><label>目的机场<select id="destination"><option value="">全部机场</option></select></label><label>出发月份<select id="month"><option value="">全部月份</option></select></label><label>行程<select id="trip"><option value="one_way">单程</option><option value="round_trip">往返</option></select></label><button type="reset" class="reset">重置筛选</button></form>
+      <form class="filters" id="filters"><label>出发城市<select id="origin"><option value="">全部城市</option></select></label><label>目的国家<select id="country"><option value="">全部国家</option></select></label><label>目的城市<select id="destination"><option value="">全部城市</option></select></label><label>出发月份<select id="month"><option value="">全部月份</option></select></label><label>行程<select id="trip"><option value="one_way">单程</option><option value="round_trip">往返</option></select></label><button type="reset" class="reset">重置筛选</button></form>
       <div class="toolbar"><nav aria-label="结果视图"><button class="tab active" data-view="flights" aria-pressed="true">航班报价</button><button class="tab" data-view="calendar" aria-pressed="false">价格日历</button><button class="tab" data-view="status" aria-pressed="false">更新记录</button></nav><label class="sort" id="sort-label">排序<select id="sort"><option value="price">价格从低到高</option><option value="date">出发日期</option><option value="updated">最近查询</option></select></label></div>
       <div id="view-flights"><div class="table-intro"><span id="result-count">读取中…</span><span>人民币 / 人 · 必付税费已计入 · 行李待确认</span></div><div class="table-scroll"><table><thead><tr><th>出发 / 返回</th><th>航线</th><th>航班与时刻</th><th>价格</th><th>来源 / 查询时间</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="fare-rows"></tbody></table></div><div id="empty" class="empty" hidden><strong>没有符合筛选条件的航班报价</strong><p>可以调整筛选，或查看价格日历中的候选日期。未返回报价不代表没有航班。</p></div><div class="pagination" id="pagination"></div></div>
       <div id="view-calendar" hidden><div class="table-intro"><span>每个出发日期的最低参考价</span><span>点击日期，查看对应航线；日历参考价尚未逐一核价</span></div><div id="calendar-months"></div></div>
-      <div id="view-status" hidden><div id="source-status"></div><div class="table-scroll"><table><thead><tr><th>航线</th><th>查询内容</th><th>状态</th><th>返回记录</th><th>查询时间</th><th>操作</th></tr></thead><tbody id="check-rows"></tbody></table></div></div>
+      <div id="view-status" hidden><div id="source-status"></div><div class="check-controls"><p id="check-summary" role="status"></p><label><input id="show-empty-checks" type="checkbox"><span id="empty-check-count">显示无报价记录</span></label><p class="subtle">无报价表示查询正常但本次没有符合条件的结果，不等于没有航线。失败和未完成的记录始终保留。记录按上方出发城市、国家和目的城市筛选。</p></div><div class="table-scroll"><table><thead><tr><th>航线</th><th>查询内容</th><th>状态</th><th>返回记录</th><th>查询时间</th><th>操作</th></tr></thead><tbody id="check-rows"></tbody></table></div><p id="checks-empty" class="empty" hidden></p></div>
     </section>
     <footer><p>航班表仅展示筛选核对过的低价候选，并非所有航班；每页 15 条，可翻页查看。购买前请打开来源页面确认价格、行李和退改条件。</p><p id="scope-note">当前为试运行；自动来源为 Google Flights，尚未覆盖所有平台。</p></footer>
   </main>
@@ -40,7 +40,7 @@
     </section>
     <section><h3>航班从哪里来？查询哪些地方？</h3>
       <p>自动来源为 <strong>Google Flights 的网页数据</strong>，不是承诺稳定的官方免费 API。目前没有自动接入携程、去哪儿或各航司官网，也不代表各平台都已比较。</p>
-      <p id="help-scope">查询范围随看板配置更新；请参见出发城市、目的国家与机场筛选。</p><ul id="help-airports"></ul>
+      <p id="help-scope">查询范围随看板配置更新；请参见出发城市、目的国家与城市筛选。</p><ul id="help-airports"></ul><p>目的地按服务城市归类，例如首尔合并仁川、金浦机场，东京合并成田、羽田机场。只查询配置中列出的机场，不会自动添加同城其他机场。</p>
       <p>统一条件：1 位成人、经济舱、直飞、来源以人民币展示的价格，包含来源显示的必付税费。行李和退改条件待确认；不含前往出发机场的地面交通费用。起降时间使用机场当地时间，查询时间使用北京时间。</p>
     </section>
     <section><h3>为什么只显示部分航班？怎样选出来的？</h3>
@@ -48,11 +48,11 @@
       <p>这些是程序设置的工作量上限，不是平台提供的收费查询额度。运行时限、访问限制或查询失败会减少实际完成量；“未列出”不代表没有航班。</p>
     </section>
     <section><h3>页面怎样排序？“最低价”指什么？</h3>
-      <p>默认先显示本次取得、且查询时间未超过 26 小时的报价，再按价格从低到高排列；历史报价排在后面。也可切换为出发日期或最近查询排序。每页 15 条，可以翻页，并按城市、国家、机场、月份及单程／往返筛选。</p>
+      <p>默认先显示本次取得、且查询时间未超过 26 小时的报价，再按价格从低到高排列；历史报价排在后面。也可切换为出发日期或最近查询排序。每页 15 条，可以翻页，并按出发城市、国家、目的城市、月份及单程／往返筛选。选择一个目的城市会同时展示它的所有已配置机场；具体机场在报价和详情中标明。</p>
       <p>顶部最低价仅来自当前筛选下的本次有效航班报价，历史报价不参与。“价格日历”显示当前筛选下每个出发日期的最低参考价，尚未逐日核对所有具体航班。来源显示价不等于商家最终结算价，购买前需要重新确认。</p>
     </section>
     <section><h3>更新记录里的状态分别是什么意思？</h3>
-      <dl><dt>完成</dt><dd>该项查询取得了有效报价。</dd><dt>本次无报价</dt><dd>来源本次未返回符合筛选条件的结果，不等于没有航班。</dd><dt>查询失败</dt><dd>未取得可靠结果，可能是网络、来源限制或返回格式异常；保留对应旧报价及原查询时间。</dd><dt>本次未查询</dt><dd>达到运行时限，或触发连续失败／访问限制保护，留待下次查询。</dd></dl>
+      <dl><dt>取得报价</dt><dd>该项查询取得了有效报价。</dd><dt>查询正常 · 无符合条件报价</dt><dd>默认收起，可勾选“显示无报价记录”查看。来源本次未返回符合筛选条件的结果，不等于没有航线，也不会被判为失败。</dd><dt>查询失败</dt><dd>未取得可靠结果，可能是网络、来源限制或返回格式异常；保留对应旧报价及原查询时间。</dd><dt>本次未查询</dt><dd>达到运行时限，或触发连续失败／访问限制保护，留待下次查询。</dd></dl>
       <p>“部分查询未完成”表示部分项目失败或未查询，其他成功项目仍可查看。某国往返日历失败，也可能已经取得该国的具体往返航班报价；两种查询分别展示。</p>
     </section>
     <section><h3>历史价格与 Excel 会保留吗？</h3>
