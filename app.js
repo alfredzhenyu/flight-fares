@@ -11,10 +11,20 @@ function destinationCities(){
 }
 function city(code) { return data.origins[code] || destinationCities().find(c=>Object.hasOwn(c.airports,code))?.name || code; }
 function airport(code) { return Object.values(data.countries).map(c=>c.airports[code]).find(Boolean) || data.origins[code] || code; }
+function regionId(city){return city.region?city.country+":"+city.region:"";}
+function cityGroups(cities){
+  const groups=new Map();
+  for(const city of cities){
+    const label=data.countries[city.country].name+(city.region?" · "+city.region:"");
+    if(!groups.has(label))groups.set(label,[]);
+    groups.get(label).push(city);
+  }
+  return groups;
+}
 function routeMatches(row){
-  const origin=$("origin").value,country=$("country").value,destination=$("destination").value;
-  const selected=destinationCities().find(c=>c.id===destination);
-  return (!origin||row.origin===origin)&&(!country||Object.hasOwn(data.countries[country].airports,row.destination))&&(!destination||Boolean(selected&&Object.hasOwn(selected.airports,row.destination)));
+  const origin=$("origin").value,country=$("country").value,region=$("region").value,destination=$("destination").value;
+  const selected=destinationCities().find(c=>Object.hasOwn(c.airports,row.destination));
+  return (!origin||row.origin===origin)&&(!country||selected?.country===country)&&(!region||Boolean(selected&&regionId(selected)===region))&&(!destination||selected?.id===destination);
 }
 function current(row) {return data.run && row.observed_at >= data.run.started_at && Date.now() - new Date(row.observed_at).getTime() < 26 * 3600000;}
 function filters(rows) {
@@ -34,7 +44,7 @@ function renderHelp(){
   const destinations=countries.reduce((n,c)=>n+Object.keys(c.airports).length,0);
   const policy=data.collection_policy;
   $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinationCities().length} 个目的城市、${destinations} 个已选机场，共 ${origins.length*destinations} 条配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。只查询配置中明确选定的城市和机场，不会自动扫描整个国家。`;
-  $("help-airports").innerHTML=Object.entries(data.countries).map(([code,c])=>`<li><strong>${esc(c.name)}</strong>：${destinationCities().filter(city=>city.country===code).map(city=>`${esc(city.name)}（${Object.keys(city.airports).join(" / ")}）`).join("、")}。</li>`).join("");
+  $("help-airports").innerHTML=[...cityGroups(destinationCities())].map(([label,cities])=>`<li><strong>${esc(label)}</strong>：${cities.map(city=>`${esc(city.name)}（${Object.keys(city.airports).join(" / ")}）`).join("、")}。</li>`).join("");
   if(policy){
     $("help-single-budget").textContent=`当前配置每次采集最多查询 ${policy.max_detail_queries} 组“航线＋出发日期”。`;
     $("help-nights").textContent=policy.round_trip_nights.join("／");
@@ -44,6 +54,7 @@ function initialize() {
   renderHelp();
   for(const [code,name] of Object.entries(data.origins)) $("origin").append(option(code,name));
   for(const [code,country] of Object.entries(data.countries)) $("country").append(option(code,country.name));
+  populateRegions();
   populateDestinations();
   const months=new Set();for(let d=new Date(data.window.from+"T12:00:00");d<=new Date(data.window.to+"T12:00:00");d.setDate(d.getDate()+1)) months.add(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));
   for(const m of months) $("month").append(option(m,m.replace("-"," 年 ")+" 月"));
@@ -56,9 +67,9 @@ function initialize() {
     $("notice-actions").hidden=false;
     $("notice").textContent=!data.run?"尚无采集结果。":data.run.status==="failed"?"本次查询失败，保留的报价带有原查询时间。请查看更新记录。":Date.now()-new Date(data.run.finished_at)>26*3600000?"最新数据已超过 26 小时，当前全部为历史报价，请打开来源页面重新确认。":"部分航线未取得有效结果。保留的历史报价带有原查询时间；覆盖情况见更新记录。";
   }
-  $("filters").addEventListener("change",event=>{if(event.target.id==="country")populateDestinations();page=0;render();});
+  $("filters").addEventListener("change",event=>{if(event.target.id==="country")populateRegions();if(["country","region"].includes(event.target.id))populateDestinations();page=0;render();});
   $("filters").addEventListener("submit",e=>e.preventDefault());
-  $("filters").addEventListener("reset",()=>setTimeout(()=>{populateDestinations();page=0;render();},0));
+  $("filters").addEventListener("reset",()=>setTimeout(()=>{populateRegions();populateDestinations();page=0;render();},0));
   $("sort").addEventListener("change",()=>{page=0;render();});
   document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{view=btn.dataset.view;render();}));
   $("close-dialog").addEventListener("click",()=>$("detail").close());
@@ -83,9 +94,22 @@ function renderCityCoverage(){
     return `<div><strong>${esc(name)}</strong><span>${stale?"历史查询 · ":""}${status}</span><small>${ok+empty}/${checks.length} 项查询完成 · ${fresh} 条新航班报价${old?` · ${old} 条历史报价`:""}</small></div>`;
   }).join("");
 }
+function populateRegions(){
+  const chosen=$("region").value,country=$("country").value;
+  const regions=new Map(destinationCities().filter(c=>c.region&&(!country||c.country===country)).map(c=>[regionId(c),country?c.region:data.countries[c.country].name+" · "+c.region]));
+  $("region").replaceChildren(option("",regions.size?"全部省份／州":"暂无地区划分"));
+  for(const [id,label] of regions)$("region").append(option(id,label));
+  $("region").disabled=!regions.size;
+  if(regions.has(chosen))$("region").value=chosen;
+}
 function populateDestinations(){
   const chosen=$("destination").value;$("destination").replaceChildren(option("","全部城市"));
-  for(const c of destinationCities())if(!$("country").value||$("country").value===c.country)$("destination").append(option(c.id,c.name));
+  const cities=destinationCities().filter(c=>(!$("country").value||$("country").value===c.country)&&(!$("region").value||$("region").value===regionId(c)));
+  for(const [label,items] of cityGroups(cities)){
+    const group=document.createElement("optgroup");group.label=label;
+    for(const c of items)group.append(option(c.id,c.name));
+    $("destination").append(group);
+  }
   if([...$("destination").options].some(o=>o.value===chosen))$("destination").value=chosen;
 }
 function render(){
