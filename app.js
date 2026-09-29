@@ -96,8 +96,8 @@ function renderCityCoverage(){
 }
 function populateRegions(){
   const chosen=$("region").value,country=$("country").value;
-  const regions=new Map(destinationCities().filter(c=>c.region&&(!country||c.country===country)).map(c=>[regionId(c),country?c.region:data.countries[c.country].name+" · "+c.region]));
-  $("region").replaceChildren(option("",regions.size?"全部省份／州":"暂无地区划分"));
+  const regions=new Map(destinationCities().filter(c=>country&&c.region&&c.country===country).map(c=>[regionId(c),c.region]));
+  $("region").replaceChildren(option("",!country?"先选择目的国家":regions.size?"全部省份／州":"暂无地区划分"));
   for(const [id,label] of regions)$("region").append(option(id,label));
   $("region").disabled=!regions.size;
   if(regions.has(chosen))$("region").value=chosen;
