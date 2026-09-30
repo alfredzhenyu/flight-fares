@@ -38,8 +38,7 @@
     const best=new Map();
     for(const row of rows){
       const old=best.get(row.departure_date);
-      if(!old||Number(current(row,data,now))>Number(current(old,data,now))||
-        (current(row,data,now)===current(old,data,now)&&byPrice(row,old)<0))best.set(row.departure_date,row);
+      if(!old||byPrice(row,old)<0)best.set(row.departure_date,row);
     }
     return best;
   }

@@ -70,7 +70,7 @@ function initialize() {
   }
   $("filters").addEventListener("change",event=>{if(event.target.id==="country")populateRegions();if(["country","region"].includes(event.target.id))populateDestinations();page=0;render();});
   $("filters").addEventListener("submit",e=>e.preventDefault());
-  $("filters").addEventListener("reset",()=>setTimeout(()=>{populateRegions();populateDestinations();page=0;render();},0));
+  $("filters").addEventListener("reset",()=>setTimeout(()=>{$("include-history").checked=false;populateRegions();populateDestinations();page=0;render();},0));
   $("sort").addEventListener("change",()=>{page=0;render();});
   document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{view=btn.dataset.view;render();}));
   $("close-dialog").addEventListener("click",()=>$("detail").close());
@@ -191,7 +191,7 @@ function renderStatus(){
   $("checks-empty").textContent=checks.length?"当前范围的查询均正常但未返回报价；可勾选上方开关查看记录。":"当前筛选范围没有查询记录。";
   $("check-rows").querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>startFlightJob({mode:"retry",run_id:data.run.id,check_index:Number(b.dataset.retry)}));
 }
-fetch("data.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("数据读取失败");return r.json();}).then(result=>{data=result;if(data.schema_version!==1)throw new Error("数据版本不匹配");initialize();}).catch(()=>{$("run-status").textContent="未能读取报价";$("notice").hidden=false;$("notice-actions").hidden=false;$("notice").textContent="报价文件暂时不可用，请稍后刷新。当前未展示任何示例价格。";$("result-count").textContent="暂无数据";});
+fetch("data.json?v="+Date.now(),{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error("数据读取失败");return r.json();}).then(result=>{data=result;if(data.schema_version!==1)throw new Error("数据版本不匹配");initialize();}).catch(()=>{$("run-status").textContent="未能读取报价";$("notice").hidden=false;$("notice-actions").hidden=false;$("notice").textContent="报价文件暂时不可用，请稍后刷新。当前未展示任何示例价格。";$("result-count").textContent="暂无数据";});
 
 
 // On-demand controls are enabled only after a production HTTPS API is configured.
