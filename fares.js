@@ -1,6 +1,6 @@
 // One projection for both the price list and calendar. Raw evidence stays intact.
 (function(root){
-  const key=r=>[r.origin,r.destination,r.departure_date,r.nights||0].join('|');
+  const key=r=>[r.origin,r.destination,r.departure_date,r.nights||0,r.max_stops||0].join('|');
   const checkKey=c=>key({...c,departure_date:c.from});
   const recent=(at,now=Date.now())=>Number.isFinite(Date.parse(at))&&now-Date.parse(at)>=0&&now-Date.parse(at)<3600000;
   const current=(r,data,now=Date.now())=>Boolean(data.run&&r.observed_at>=data.run.started_at&&now-Date.parse(r.observed_at)<26*3600000);
@@ -20,20 +20,33 @@
       const best=quotes.sort(byPrice)[0];
       const r=!calendar||(best&&best.observed_at>=calendar.observed_at)?best:calendar;
       const detail=best&&best.price===r.price?best:null;
-      return {...r,reference:calendar,detail};
+      return {...r,reference:calendar,detail,direct_candidates:quotes.filter(q=>q.stops===0&&q.observed_at>=r.observed_at)};
     });
   }
-  function minima(rows,data,{includeHistory=false,now=Date.now()}={}){
+  function minima(rows,data,{includeHistory=false,now=Date.now(),maxStops=0}={}){
     const city=cities(data),groups=new Map();
     for(const row of rows){
-      if(!includeHistory&&!current(row,data,now))continue;
+      if((row.max_stops||0)>maxStops||(!includeHistory&&!current(row,data,now)))continue;
       const k=[city.get(row.destination)||row.destination,row.departure_date,row.nights||0].join('|');
-      const previous=groups.get(k);
-      if(!previous||Number(current(row,data,now))>Number(current(previous,data,now))||
-        (current(row,data,now)===current(previous,data,now)&&byPrice(row,previous)<0))groups.set(k,row);
+      if(!groups.has(k))groups.set(k,[]);groups.get(k).push(row);
     }
-    return [...groups.values()].sort(byPrice);
+    return [...groups.values()].map(items=>{
+      const fresh=items.filter(r=>current(r,data,now)),pool=fresh.length?fresh:items;
+      const direct=pool.flatMap(r=>[r,...(r.direct_candidates||[])]).filter(isDirect).sort(byPrice)[0];
+      const cheapest=pool.slice().sort(byPrice)[0];
+      const winner=direct&&direct.price<=cheapest.price?direct:cheapest;
+      return {...winner,detail:winner.detail||(winner.kind==='flight'?winner:null),direct_price:direct?.price??null,direct_observed_at:direct?.observed_at??null,
+        savings:!isDirect(winner)&&direct?direct.price-winner.price:null};
+    }).sort(byPrice);
   }
+  const isDirect=r=>r.stops===0||(r.max_stops||0)===0;
+  function worthwhile(rows,baseline=null){
+    const prices=rows.filter(isDirect).map(r=>r.price);
+    if(baseline!=null)prices.push(baseline);
+    const direct=prices.length?Math.min(...prices):null;
+    return rows.filter(r=>isDirect(r)||direct===null||r.price<direct).sort(byPrice);
+  }
+
   function calendarRows(rows,data,now=Date.now()){
     const best=new Map();
     for(const row of rows){
@@ -42,7 +55,7 @@
     }
     return best;
   }
-  function details(row,data){return data.quotes.filter(q=>key(q)===key(row)).sort(byPrice);}
+  function details(row,data){return worthwhile(data.quotes.filter(q=>key(q)===key(row)),row.direct_price);}
   function lastCheck(row,data){return (data.detail_checks||data.run?.checks||[]).filter(c=>c.kind==='flight'&&checkKey(c)===key(row)).sort((a,b)=>(b.at||'').localeCompare(a.at||''))[0];}
   function needsQuery(row,data,now=Date.now()){
     const check=lastCheck(row,data);
@@ -50,7 +63,7 @@
     if(check&&recent(check.at,now)&&['ok','empty','failed'].includes(check.status))return false;
     return !details(row,data).some(r=>recent(r.observed_at,now));
   }
-  const api={key,checkKey,recent,current,byPrice,routeFares,minima,calendarRows,details,lastCheck,needsQuery};
+  const api={isDirect,worthwhile,key,checkKey,recent,current,byPrice,routeFares,minima,calendarRows,details,lastCheck,needsQuery};
   root.FareModel=api;
   if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
