@@ -121,7 +121,7 @@ function comparison(r){return FareModel.isDirect(r)?"":r.direct_price==null?"暂
 function journeyHtml(q){
   return (q.itineraries||[]).map((trip,i)=>{
     const j=q.journeys?.[i], offset=j?.arrival_day_offset;
-    const waits=(j?.layovers||[]).map(l=>`${esc(l.city||city(l.airport))}（${esc(l.airport)}）等待 ${duration(l.duration_minutes)}${l.overnight?" · 跨日中转":""}`).join("；");
+    const waits=(j?.layovers||[]).map(l=>`${esc(city(l.airport)!==l.airport?city(l.airport):(l.city||l.airport))}（${esc(l.airport)}）等待 ${duration(l.duration_minutes)}${l.overnight?" · 跨日中转":""}`).join("；");
     return `<p class="journey-note"><strong>${i?"回程":"去程"} · ${(j?.stops??trip.length-1)===1?"中转1次":"直飞"} · ${duration(j?.duration_minutes)}${offset?` · 抵达日期${offset>0?"+":""}${offset}天`:""}</strong><br>${waits?waits+"<br>":""}${trip.map(l=>`${esc(l.flight_number)} · ${esc(l.airline)}<br>${esc(city(l.origin))} ${esc(l.origin)} ${esc(l.departure.replace("T"," "))} → ${esc(city(l.destination))} ${esc(l.destination)} ${esc(l.arrival.replace("T"," "))}`).join("<br>")}<br><small>起降为机场当地时间${j?.stops?"；联程保障、行李直挂待确认":""}</small></p>`;
   }).join("");
 }
@@ -133,14 +133,14 @@ function calendarRequest(){
 function renderConnectionSearch(){
   $("connection-search").hidden=$("stops").value!=="1";
   const req=calendarRequest(),single=$("trip").value==="one_way";
-  $("window-label").textContent=`${data.window.from} 至 ${data.window.to} · 1 位成人 · 经济舱 · ${$("stops").value==="1"?"直飞＋最多1次中转":"直飞"}`;
-  $("connection-scope").textContent=!single?"月度补查用于单程日历。往返请从详情选择停留天数查询，每个方向最多一次中转。":req?`${req.origin?city(req.origin):"全部配置出发城市"} → ${destinationCities().find(c=>c.id===req.city).name} · ${req.month}：成对查询直飞和含中转价格，严格更便宜才选中转；航程详情按需补查。`:"请先选择一个目的城市和出发月份，再点击查询。切换筛选不会自动启动任务。";
+  $("window-label").textContent=`${data.window.from} 至 ${data.window.to} · 1 位成人 · 经济舱 · ${$("stops").value==="1"?"直飞＋中转":"直飞"}`;
+  $("connection-scope").textContent=!single?"月度补查用于单程日历。往返请从详情选择停留天数查询，支持直飞和中转。":req?`${req.origin?city(req.origin):"全部配置出发城市"} → ${destinationCities().find(c=>c.id===req.city).name} · ${req.month}：成对查询直飞和中转价格。有直飞时只选更便宜的中转；没有直飞参考价时，也展示取得的中转结果。`:"请先选择一个目的城市和出发月份，再点击查询。切换筛选不会自动启动任务。";
   $("query-calendar").disabled=!req||!single||!apiBase()||Boolean(activeFlightJob);
   $("query-calendar").onclick=()=>startFlightJob(req);
   const checks=(data.on_demand_runs||[]).flatMap(r=>(r.checks||[]).map(c=>({...c,at:c.at||r.finished_at}))).filter(c=>c.kind==="calendar"&&routeMatches(c)&&(!$("month").value||c.from.startsWith($("month").value)));
   const latest=new Map();for(const c of checks){const k=[c.origin,c.destination,c.from,c.to,c.max_stops||0].join('|');if(!latest.has(k)||(c.at||"")>(latest.get(k).at||""))latest.set(k,c);}
   const rows=[...latest.values()],names={ok:"取得报价",empty:"无符合条件报价",failed:"查询失败",skipped:"待补查"};
-  $("connection-coverage").innerHTML=rows.length?`<details><summary>按需月度覆盖：${rows.filter(c=>["ok","empty"].includes(c.status)).length}/${rows.length} 项完成（包含直飞对照）</summary>${rows.map(c=>`<p>${esc(c.origin)} → ${esc(c.destination)} · ${c.max_stops===1?"最多1次中转":"直飞"} · ${esc(c.from)}～${esc(c.to)} · ${names[c.status]||esc(c.status)} · ${esc(clock(c.at))}${c.message?" · "+esc(c.message):""}</p>`).join("")}</details>`:"<p>当前范围尚无按需月度查询记录；已存直飞价格仍可查看。</p>";
+  $("connection-coverage").innerHTML=rows.length?`<details><summary>按需月度覆盖：${rows.filter(c=>["ok","empty"].includes(c.status)).length}/${rows.length} 项完成（包含直飞对照）</summary>${rows.map(c=>`<p>${esc(c.origin)} → ${esc(c.destination)} · ${c.max_stops===1?"直飞＋中转":"直飞"} · ${esc(c.from)}～${esc(c.to)} · ${names[c.status]||esc(c.status)} · ${esc(clock(c.at))}${c.message?" · "+esc(c.message):""}</p>`).join("")}</details>`:"<p>当前范围尚无按需月度查询记录；已采集的直飞与中转价格会在下方展示。每日维护覆盖见更新记录。</p>";
 }
 function render(){
   renderConnectionSearch();
@@ -208,7 +208,7 @@ function renderFareDetails(){
 }
 
 function renderStatus(){
-  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描所有配置航线；每日仅对其中的低价候选查询航班详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
+  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描配置航线；科伦坡和贝尔格莱德优先查询直飞与中转，其他城市中转按需补查。每日预先补全直飞低价候选详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
   const status={ok:"取得报价",empty:"查询正常 · 无符合条件报价",failed:"查询失败",skipped:"本次未查询"};
   // Keep the original index for targeted retry even when rows are hidden.
   const checks=(data.run?.checks||[]).map((check,index)=>({check,index})).filter(({check})=>routeMatches(check));
@@ -216,7 +216,7 @@ function renderStatus(){
   $("check-summary").textContent=`取得报价 ${count("ok")} 项 · 查询失败 ${count("failed")} 项 · 未查询 ${count("skipped")} 项 · 正常无报价 ${count("empty")} 项`;
   $("empty-check-count").textContent=`显示无报价记录（${count("empty")}）`;
   const shown=checks.filter(({check})=>check.status!=="empty"||$("show-empty-checks").checked);
-  $("check-rows").innerHTML=shown.map(({check:c,index})=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}<small>${esc(c.origin)} — ${esc(c.destination)} · ${esc(airport(c.destination))}</small></td><td>${c.kind==="calendar"?"价格日历":"航班详情"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td><span class="check-state ${esc(c.status)}">${status[c.status]||esc(c.status)}</span>${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${["failed","skipped"].includes(c.status)?"—":c.rows}</td><td>${esc(clock(c.at))}</td><td>${retryControl(c,index)}</td></tr>`).join("");
+  $("check-rows").innerHTML=shown.map(({check:c,index})=>`<tr><td>${esc(city(c.origin))} → ${esc(city(c.destination))}<small>${esc(c.origin)} — ${esc(c.destination)} · ${esc(airport(c.destination))}</small></td><td>${c.kind==="calendar"?"价格日历":"航班详情"} · ${c.max_stops===1?"直飞＋中转":"直飞"}${c.nights?" · 往返 "+c.nights+" 天":" · 单程"}<small>${esc(c.from)}${c.to!==c.from?" 至 "+esc(c.to):""}</small></td><td><span class="check-state ${esc(c.status)}">${status[c.status]||esc(c.status)}</span>${c.message?`<small>${esc(c.message)}</small>`:""}</td><td>${["failed","skipped"].includes(c.status)?"—":c.rows}</td><td>${esc(clock(c.at))}</td><td>${retryControl(c,index)}</td></tr>`).join("");
   $("checks-empty").hidden=shown.length>0;
   $("checks-empty").textContent=checks.length?"当前范围的查询均正常但未返回报价；可勾选上方开关查看记录。":"当前筛选范围没有查询记录。";
   $("check-rows").querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>startFlightJob({mode:"retry",run_id:data.run.id,check_index:Number(b.dataset.retry)}));
