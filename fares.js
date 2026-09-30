@@ -32,8 +32,13 @@
     }
     return [...groups.values()].map(items=>{
       const fresh=items.filter(r=>current(r,data,now)),pool=fresh.length?fresh:items;
-      const direct=pool.flatMap(r=>[r,...(r.direct_candidates||[])]).filter(isDirect).sort(byPrice)[0];
-      const cheapest=pool.slice().sort(byPrice)[0];
+      const directRoutes=new Map();
+      for(const r of pool.flatMap(r=>[r,...(r.direct_candidates||[])]).filter(isDirect)){
+        const k=[r.origin,r.destination].join('|'),old=directRoutes.get(k);
+        if(!old||r.observed_at>old.observed_at||(r.observed_at===old.observed_at&&r.price<old.price))directRoutes.set(k,r);
+      }
+      const direct=[...directRoutes.values()].sort(byPrice)[0];
+      const cheapest=[...pool.filter(r=>!isDirect(r)),...(direct?[direct]:[])].sort(byPrice)[0];
       const winner=direct&&direct.price<=cheapest.price?direct:cheapest;
       return {...winner,detail:winner.detail||(winner.kind==='flight'?winner:null),direct_price:direct?.price??null,direct_observed_at:direct?.observed_at??null,
         savings:!isDirect(winner)&&direct?direct.price-winner.price:null};

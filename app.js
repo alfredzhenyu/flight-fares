@@ -198,6 +198,8 @@ function requestFareDetails(){
 }
 function renderFareDetails(){
   if(!selectedFare||!$("fare-details"))return;
+  const updated=dailyFares().find(r=>city(r.destination)===city(selectedFare.destination)&&r.departure_date===selectedFare.departure_date&&(r.nights||0)===(selectedFare.nights||0));
+  if(updated)selectedFare.direct_price=updated.direct_price;
   const rows=FareModel.details(selectedFare,data),best=rows[0],check=FareModel.lastCheck(selectedFare,data);
   const text=check?.status==="empty"?"最近一次查询没有符合条件的航班；原参考价不作为可购买报价。":check?.status==="failed"?"最近一次详情查询未成功，可以稍后重试。":best?`已存 ${rows.length} 条航班详情，最低 ${money(best.price)}，查询于 ${clock(best.observed_at)}。`:"尚未取得航班号和起降时刻，正在准备按需查询。";
   const difference=best&&best.price!==selectedFare.price?`<p class="notice">打开时的参考价为 ${money(selectedFare.price)}；详情最低价为 ${money(best.price)}。${best.observed_at>=selectedFare.observed_at?"列表与日历已按最新结果重新比较。":"这份航班详情早于参考价，将按需刷新。"}</p>`:"";
