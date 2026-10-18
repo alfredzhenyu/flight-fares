@@ -44,11 +44,13 @@ function renderHelp(){
   const origins=Object.values(data.origins),countries=Object.values(data.countries);
   const destinations=countries.reduce((n,c)=>n+Object.keys(c.airports).length,0);
   const policy=data.collection_policy;
-  $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinationCities().length} 个目的城市、${destinations} 个已选机场，共 ${origins.length*destinations} 条配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。只查询配置中明确选定的城市和机场，不会自动扫描整个国家。`;
-  $("help-airports").innerHTML=[...cityGroups(destinationCities())].map(([label,cities])=>`<li><strong>${esc(label)}</strong>：${cities.map(city=>`${esc(city.name)}（${Object.keys(city.airports).join(" / ")}）`).join("、")}。</li>`).join("");
+  const dailyRoutes=destinationCities().reduce((n,c)=>n+(c.daily_origins||Object.keys(data.origins)).length*Object.keys(c.airports).length,0);
+  $("help-scope").textContent=`出发城市：${origins.join("、")}。目前覆盖 ${countries.map(c=>c.name).join("、")}的 ${destinationCities().length} 个目的城市、${destinations} 个已选机场，共 ${dailyRoutes} 条每日配置航线；每次采集从次日起查询未来 ${policy?.window_days||60} 天。只查询配置中明确选定的城市和机场，不会自动扫描整个国家。部分新增城市先自动维护深圳出发，按需查询仍可选择其他出发城市。`;
+  $("help-airports").innerHTML=[...cityGroups(destinationCities())].map(([label,cities])=>`<li><strong>${esc(label)}</strong>：${cities.map(city=>`${esc(city.name)}（${Object.keys(city.airports).join(" / ")}）${city.daily_origins?"〔每日："+city.daily_origins.map(o=>esc(data.origins[o])).join("、")+"出发〕":""}`).join("、")}。</li>`).join("");
   if(policy){
     $("help-single-budget").textContent=`后台每天最多预先补全 ${policy.max_detail_queries} 组单程详情；这个上限不限制每日最低价的展示。`;
     $("help-nights").textContent=policy.round_trip_nights.join("／");
+    $("help-connections").textContent=(policy.connection_cities||[]).map(id=>destinationCities().find(c=>c.id===id)?.name).filter(Boolean).join("、");
   }
 }
 function initialize() {
@@ -208,7 +210,7 @@ function renderFareDetails(){
 }
 
 function renderStatus(){
-  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描配置航线；科伦坡和贝尔格莱德优先查询直飞与中转，其他城市中转按需补查。每日预先补全直飞低价候选详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
+  $("source-status").innerHTML=`<div class="sources">${data.sources.map(s=>`<p><strong>${esc(s.name)}</strong> · ${esc(s.status)}<br><small>${esc(s.note)}</small></p>`).join("")}<p><small>价格日历扫描配置航线；已配置中转维护的城市优先查询直飞与中转，具体范围见使用帮助；其他城市中转按需补查。每日预先补全直飞低价候选详情。往返优先查询每个国家两条低价航线的 5 / 7 / 10 天方案。</small></p></div>`;
   const status={ok:"取得报价",empty:"查询正常 · 无符合条件报价",failed:"查询失败",skipped:"本次未查询"};
   // Keep the original index for targeted retry even when rows are hidden.
   const checks=(data.run?.checks||[]).map((check,index)=>({check,index})).filter(({check})=>routeMatches(check));
