@@ -130,19 +130,20 @@ function journeyHtml(q){
 function calendarRequest(){
   const matches=destinationCities().filter(c=>(!$("country").value||c.country===$("country").value)&&(!$("region").value||regionId(c)===$("region").value));
   const chosen=destinationCities().find(c=>c.id===$("destination").value)||(matches.length===1?matches[0]:null);
-  return chosen&&$("month").value?{mode:"calendar",city:chosen.id,month:$("month").value,origin:$("origin").value,max_stops:1}:null;
+  return chosen?{mode:"calendar",city:chosen.id,month:$("month").value,origin:$("origin").value,max_stops:Number($("stops").value)}:null;
 }
 function renderConnectionSearch(){
-  $("connection-search").hidden=$("stops").value!=="1";
+  $("connection-search").hidden=false;
   const req=calendarRequest(),single=$("trip").value==="one_way";
   $("window-label").textContent=`${data.window.from} 至 ${data.window.to} · 1 位成人 · 经济舱 · ${$("stops").value==="1"?"直飞＋中转":"直飞"}`;
-  $("connection-scope").textContent=!single?"月度补查用于单程日历。往返请从详情选择停留天数查询，支持直飞和中转。":req?`${req.origin?city(req.origin):"全部配置出发城市"} → ${destinationCities().find(c=>c.id===req.city).name} · ${req.month}：成对查询直飞和中转价格。有直飞时只选更便宜的中转；没有直飞参考价时，也展示取得的中转结果。`:"请先选择一个目的城市和出发月份，再点击查询。切换筛选不会自动启动任务。";
+  $("connection-scope").textContent=!single?"此处更新单程日历。往返请从详情选择停留天数查询，支持直飞和中转。":req?`${req.origin?city(req.origin):"全部配置出发城市"} → ${destinationCities().find(c=>c.id===req.city).name} · ${req.month||`从明日起未来 ${data.collection_policy?.window_days||60} 天`} · ${req.max_stops?"直飞＋中转，只有更便宜的中转才替代直飞":"仅直飞"}。即使当前没有报价，也可以更新；部分完成时可再次补查。`:"请先选择一个目的城市，再点击更新。月份可不选，默认查询从明日起未来 60 天；切换筛选不会自动启动任务。";
+  $("query-calendar").textContent=activeFlightJob?"正在更新…":"更新该城市价格";
   $("query-calendar").disabled=!req||!single||!apiBase()||Boolean(activeFlightJob);
   $("query-calendar").onclick=()=>startFlightJob(req);
-  const checks=(data.on_demand_runs||[]).flatMap(r=>(r.checks||[]).map(c=>({...c,at:c.at||r.finished_at}))).filter(c=>c.kind==="calendar"&&routeMatches(c)&&(!$("month").value||c.from.startsWith($("month").value)));
+  const checks=(data.on_demand_runs||[]).flatMap(r=>(r.checks||[]).map(c=>({...c,at:c.at||r.finished_at}))).filter(c=>c.kind==="calendar"&&routeMatches(c)&&(!$("month").value||(c.from.slice(0,7)<=$("month").value&&c.to.slice(0,7)>=$("month").value))&&(c.max_stops||0)<=Number($("stops").value));
   const latest=new Map();for(const c of checks){const k=[c.origin,c.destination,c.from,c.to,c.max_stops||0].join('|');if(!latest.has(k)||(c.at||"")>(latest.get(k).at||""))latest.set(k,c);}
   const rows=[...latest.values()],names={ok:"取得报价",empty:"无符合条件报价",failed:"查询失败",skipped:"待补查"};
-  $("connection-coverage").innerHTML=rows.length?`<details><summary>按需月度覆盖：${rows.filter(c=>["ok","empty"].includes(c.status)).length}/${rows.length} 项完成（包含直飞对照）</summary>${rows.map(c=>`<p>${esc(c.origin)} → ${esc(c.destination)} · ${c.max_stops===1?"直飞＋中转":"直飞"} · ${esc(c.from)}～${esc(c.to)} · ${names[c.status]||esc(c.status)} · ${esc(clock(c.at))}${c.message?" · "+esc(c.message):""}</p>`).join("")}</details>`:"<p>当前范围尚无按需月度查询记录；已采集的直飞与中转价格会在下方展示。每日维护覆盖见更新记录。</p>";
+  $("connection-coverage").innerHTML=rows.length?`<details><summary>按需查询覆盖：${rows.filter(c=>["ok","empty"].includes(c.status)).length}/${rows.length} 项完成（包含直飞对照）</summary>${rows.map(c=>`<p>${esc(c.origin)} → ${esc(c.destination)} · ${c.max_stops===1?"直飞＋中转":"直飞"} · ${esc(c.from)}～${esc(c.to)} · ${names[c.status]||esc(c.status)} · ${esc(clock(c.at))}${c.message?" · "+esc(c.message):""}</p>`).join("")}</details>`:"<p>当前范围尚无按需查询记录；已采集的直飞与中转价格会在下方展示。每日维护覆盖见更新记录。</p>";
 }
 function render(){
   renderConnectionSearch();
@@ -165,6 +166,7 @@ function renderFlights(rows){
   const pages=Math.ceil(rows.length/size);page=Math.max(0,Math.min(page,pages-1));
   $("result-count").textContent=`${rows.length} 条每日最低价 · 每个目的城市、日期及停留天数保留一条${rows.some(r=>!current(r))?" · 含历史参考价":""}`;
   $("empty").hidden=rows.length>0;
+  $("empty").textContent="当前筛选没有本轮有效报价，不代表没有航班。可勾选“包含历史参考价”查看旧记录，或选择目的城市后点击“更新该城市价格”。";
   $("fare-rows").innerHTML=rows.slice(page*size,(page+1)*size).map(r=>{
     const legs=r.detail?.itineraries?.[0],a=legs?.[0],b=legs?.at(-1);
     const flight=legs?`<strong>${esc(a.departure.slice(11,16))} — ${esc(b.arrival.slice(11,16))}</strong><small>${esc(legs.map(l=>l.flight_number).join(" / "))} · ${current(r.detail)?"本轮":"历史"}同价详情</small>`:'<strong>航班详情待查询</strong><small>点击详情按需补查</small>';
